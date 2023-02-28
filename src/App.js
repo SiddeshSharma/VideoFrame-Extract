@@ -1,23 +1,29 @@
-import logo from './logo.svg';
 import './App.css';
 
 function App() {
+
+
+
+
+
+  handleFileUpload(){
+    //check if the file uploaded is a valid h.264 codec video
+    
+  }
+
+
+
   return (
     <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
+      Extract Frame from an Video.
+
+      Upload 
+
+      <input type="file" accept='video/mp4'/>
+
+      url 
+
+      <input type="url"/>
     </div>
   );
 }
