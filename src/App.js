@@ -6,9 +6,15 @@ function App() {
 
 
 
-  handleFileUpload(){
+  function handleFileUpload(event){
     //check if the file uploaded is a valid h.264 codec video
-    
+    const file = event.files[0];
+    if(file){
+
+
+
+    }
+
   }
 
 
@@ -19,7 +25,7 @@ function App() {
 
       Upload 
 
-      <input type="file" accept='video/mp4'/>
+      <input type="file" accept='video/mp4' onChange={handleFileUpload}/>
 
       url 
 
