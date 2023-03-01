@@ -1,30 +1,106 @@
-import { createFile } from "mp4box";
+import mp4Box from "mp4box";
 let mp4File;
+let frameRate;
+let videoSrc;
+
+let lastFrameNumber = 0;
+
+const videoDecoder = new VideoDecoder({
+  output: (frame) => {
+    console.log(frame);
+    frame.close();
+  },
+  error: () => {}
+})
 
 export function setUpFile({ videoSrc, srcType, onReadyCB }) {
-  mp4File = createFile();
+  videoSrc = videoSrc
+  mp4File = mp4Box.createFile();
+
+  const handler = {
+    pass: getFrameByNumber,
+  };
+
+  mp4File.onSamples= onSample;
 
   mp4File.onReady = (info) => {
     //mdat box is parsed no video can be used
-    if (onReadyCB) onReadyCB();
+    if (onReadyCB) onReadyCB(handler);
     const videoTrack = info.tracks.find((t) => "video" in t);
     mp4File.setExtractionOptions(videoTrack.id, null, {
       rapAlignment: true,
       nbSamples: 10,
     });
-
     const config = {
       codec: videoTrack.codec,
       description: getDescription(videoTrack),
       codedHeight: videoTrack.track_height,
       codedWidth: videoTrack.track_width,
     };
+
+    VideoDecoder.configure(config);
+
+    frameRate = videoTrack.nb_samples / videoTrack.movie_timescale;
+  
   };
   if (srcType === "url") {
     fetchData(videoSrc, { start: 0, end: 10 * (1024 * 1024) }, (data) => {
       mp4File.appendBuffer(data);
     });
   }
+}
+
+const gop = {};
+let lastKey = 0;
+
+function onSample(id, user, samples, clipInfo){
+  for(const sample of samples){
+    //find closest key to frame requested
+      const videoChunk = new window.EncodedVideoChunk({
+        type: sample.is_sync ? "key" : "delta",
+        timestamp: (1e6 * sample.cts) / sample.timescale,
+        duration: (1e6 * sample.duration) / sample.timescale,
+        data: sample.data,
+        number: sample.number,
+      });
+      if(videoChunk.type === 'key'){
+        lastKey = sample.number;
+        gop[sample.number] = {frames: []};
+        
+      }
+      gop[sample.number]?.frames.push({videoChunk,number: sample.number});
+     if(sample.number === lastFrameNumber){
+      handleEncodedChunk(gop[lastFrameNumber]);
+     } 
+
+  }
+
+}
+
+
+
+function getFrameByNumber(frameNumber) {
+  //seek
+  const buff = 10 * (1024 * 1021);
+  const time  =  frameNumber / frameRate;
+  const dataOffset = mp4File.seek(time, true)
+  //fetch
+  fetchData(videoSrc, {start: dataOffset.offset, end: dataOffset.offset + buff}, (data) => {
+    mp4File.appendBuffer(data)
+  });
+
+  lastFrameNumber = frameNumber;
+
+  //read from decoder
+  mp4File.start();
+  //return
+}
+
+function handleEncodedChunk({frames}){
+  for(const frame in frames){
+    videoDecoder.decode(frame)
+  }
+
 }
 
 async function fetchData(url, { start, end }, callback) {
