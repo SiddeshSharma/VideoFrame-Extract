@@ -4,7 +4,7 @@ import { getFrameByNumber2, setUpFile } from "./VideoUtility";
 import { WebGLRenderer } from "./Renderer";
 
 function App() {
-  const resquestedFrame = 100;
+  const resquestedFrame = 2000;
   const canvasRef = useRef(null);
   const renderer = useRef(null);
   useEffect(() => {
@@ -54,7 +54,7 @@ function App() {
   }
 
   function handleDecodedFrame(frame) {
-    console.log(frame, frameTimestamp);
+    console.log(frame.timestamp, frameTimestamp);
     if(frame.timestamp === frameTimestamp){
       //render the image.
       renderer.current.draw(frame);
@@ -69,7 +69,7 @@ function App() {
       <input type="file" accept="video/mp4" onChange={handleFileUpload} />
       url
       <input type="url" />
-      <button onClick={() => getFrameByNumber2(100)}>Start</button>
+      <button onClick={() => getFrameByNumber2(resquestedFrame)}>Start</button>
       <canvas height={800} width={1200} ref={canvasRef}/>
     </div>
   );
