@@ -12,54 +12,84 @@ import {
   NumberInputField,
   NumberInputStepper,
 } from "@chakra-ui/react";
+import { VideoUtility } from "./videoUtilityModule";
 
 function App() {
   const canvasRef = useRef(null);
   const renderer = useRef(null);
+  const decoder = useRef(null);
+  const videoUility = useRef(null);
   const [urlValue, setUrlValue] = useState(
     "http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
   );
   const [resquestedFrame, setResquestedFrame] = useState(100);
   const [isReady, setIsReady] = useState(false);
   const [isFileCheckLoading, setisFileCheckLoading] = useState(false);
-  const [isFileCheckLoaded, setisFileCheckLoaded] = useState(false);
+  const [urlError, setUrlError] = useState(false);
+  const [fileConfig, setFileConfig] = useState({});
 
   useEffect(() => {
     if (canvasRef.current) {
       renderer.current = new WebGLRenderer("webgl", canvasRef.current);
     }
-
+    if (!decoder.current) {
+      decoder.current = new window.VideoDecoder({
+        output: handleDecodedFrame,
+        error: (error) => {
+          console.log("some error", error);
+        },
+      });
+    }
     return () => {};
   }, [canvasRef.current]);
 
   let frameTimestamp = 0;
-  const decoder = new window.VideoDecoder({
-    output: handleDecodedFrame,
-    error: (error) => {
-      console.log("some error", error);
-    },
-  });
 
-  function handleFileStart() {
+  async function handleFileStart() {
+    //validate url first
+    //try string ops to check valid mp4 file
+    async function validateMP4(url) {
+      const controller = new AbortController();
+      const response = await fetch(url, { signal: controller.signal });
+      const reader = response.body.getReader();
+      const { value: chunk } = await reader.read(); // read the first chunk
+      reader.releaseLock(); // release the lock so that the stream can be canceled
+
+      const signature = new TextDecoder("ascii").decode(
+        new Uint8Array(chunk.slice(4, 8))
+      );
+      console.log(signature);
+      // MP4 files should have 'ftyp' here.
+      return { urlErrorCheck: signature === "ftyp", cancelSignal: controller };
+    }
+    const { urlErrorCheck, cancelSignal } = await validateMP4(urlValue);
+    cancelSignal.abort();
+    setUrlError(urlErrorCheck);
+    if (!urlErrorCheck) {
+      return;
+    }
+    //try fetching data
     //check if the file uploaded is a valid h.264 codec video
-    setisFileCheckLoading(true);
     if (urlValue) {
-      setUpFile({
+      console.log("requesting frame number:", frameTimestamp);
+      setisFileCheckLoading(true);
+      //find way to initiate file again.
+      videoUility.current = new VideoUtility({
         videoSrc: urlValue,
         srcType: "url",
         onReadyCB: (config) => {
+          console.log(config);
           setIsReady(true);
           setisFileCheckLoading(false);
-          decoder.configure(config);
+          decoder.current.configure(config);
         },
         onEncodedChunk: (data) => {
           for (let i = 0; i < data.length; i++) {
             if (data[i].number === resquestedFrame) {
-              console.log(data[i].videoChunk);
               frameTimestamp = data[i].videoChunk.timestamp;
             }
             if (data[i].videoChunk) {
-              decoder.decode(data[i].videoChunk);
+              decoder.current.decode(data[i].videoChunk);
             }
           }
         },
@@ -68,7 +98,7 @@ function App() {
   }
 
   function handleDecodedFrame(frame) {
-    console.log(frame.timestamp, frameTimestamp);
+    console.log(frame.timestamp, frameTimestamp, frame);
     if (frame.timestamp === frameTimestamp) {
       //render the image.
     }
@@ -80,7 +110,6 @@ function App() {
   return (
     <div className="App">
       {/* select input */}
-
       {true ? (
         <>
           <div
@@ -115,6 +144,7 @@ function App() {
                 size={"md"}
                 style={{ width: "80%" }}
                 value={urlValue}
+                color={!urlError ? "tomato" : ""}
                 onChange={(event) => setUrlValue(event.target.value)}
               />
               <Button
@@ -156,7 +186,11 @@ function App() {
                     </NumberInputStepper>
                   </NumberInput>
 
-                  <Button onClick={() => getFrameByNumber2(resquestedFrame)}>
+                  <Button
+                    onClick={() =>
+                      videoUility.current.requestFrameByNumber(resquestedFrame)
+                    }
+                  >
                     Extract
                   </Button>
                 </div>
@@ -197,13 +231,19 @@ function App() {
                       }}
                     >
                       {/* file info */}
+                      <span>Video Resolution: </span>
+                      <span>
+                        {/* {fileConfig.codedHeight} x {fileConfig.codedWidth} */}
+                      </span>
                     </div>
                     <Button>Download Frame</Button>
                   </div>
                 </div>
               </>
             ) : (
-              <>Loading...</>
+              <>
+                <span>Click on Start button after adding mp4 file url 🚀</span>
+              </>
             )}
           </div>
         </>
