@@ -5,6 +5,7 @@ import { WebGLRenderer } from "./Renderer";
 import { useState } from "react";
 import {
   Button,
+  Fade,
   Input,
   NumberDecrementStepper,
   NumberIncrementStepper,
@@ -27,6 +28,7 @@ function App() {
   const [isFileCheckLoading, setisFileCheckLoading] = useState(false);
   const [urlError, setUrlError] = useState(false);
   const [fileConfig, setFileConfig] = useState({});
+  const [isVerifed, setIsVerifed] = useState(false);
 
   useEffect(() => {
     if (canvasRef.current) {
@@ -45,9 +47,7 @@ function App() {
 
   let frameTimestamp = 0;
 
-  async function handleFileStart() {
-    //validate url first
-    //try string ops to check valid mp4 file
+  async function handleLinkVerification() {
     async function validateMP4(url) {
       const controller = new AbortController();
       const response = await fetch(url, { signal: controller.signal });
@@ -62,10 +62,17 @@ function App() {
       // MP4 files should have 'ftyp' here.
       return { urlErrorCheck: signature === "ftyp", cancelSignal: controller };
     }
+
     const { urlErrorCheck, cancelSignal } = await validateMP4(urlValue);
     cancelSignal.abort();
     setUrlError(urlErrorCheck);
-    if (!urlErrorCheck) {
+    setIsVerifed(urlErrorCheck);
+  }
+
+  async function handleFileStart() {
+    //validate url first
+    //try string ops to check valid mp4 file
+    if (!isVerifed) {
       return;
     }
     //try fetching data
@@ -98,10 +105,10 @@ function App() {
   }
 
   function handleDecodedFrame(frame) {
-    console.log(frame.timestamp, frameTimestamp, frame);
     if (frame.timestamp === frameTimestamp) {
-      //render the image.
+      //render the frame.
     }
+    //FIX-ME: Draw single requested frame instead of all frame in buffer.
     renderer.current.draw(frame);
     //if frame is equal to selected frame then render the frame
     frame.close();
@@ -148,8 +155,17 @@ function App() {
                 onChange={(event) => setUrlValue(event.target.value)}
               />
               <Button
+                variant="unstyled"
+                onClick={() => handleLinkVerification()}
+              >
+                Verify
+              </Button>
+              <span>-</span>
+              <Button
                 onClick={() => handleFileStart()}
                 isLoading={isFileCheckLoading}
+                isActive={!isVerifed}
+                disabled={!isVerifed}
               >
                 Start
               </Button>
@@ -163,82 +179,85 @@ function App() {
             />
             {isReady ? (
               <>
-                <div
-                  style={{
-                    marginTop: "50px",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    width: "30%",
-                  }}
-                >
-                  <NumberInput
-                    defaultValue={10}
-                    min={1}
-                    max={5000}
-                    value={resquestedFrame}
-                    onChange={(event, value) => setResquestedFrame(value)}
-                  >
-                    <NumberInputField></NumberInputField>
-                    <NumberInputStepper>
-                      <NumberIncrementStepper />
-                      <NumberDecrementStepper />
-                    </NumberInputStepper>
-                  </NumberInput>
-
-                  <Button
-                    onClick={() =>
-                      videoUility.current.requestFrameByNumber(resquestedFrame)
-                    }
-                  >
-                    Extract
-                  </Button>
-                </div>
-                <div
-                  style={{
-                    marginTop: "15px",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "flex-start",
-                    width: "60%%",
-                  }}
-                >
-                  <canvas
-                    style={{
-                      height: "400px",
-                      width: "60%",
-                      margin: "10px 40px",
-                      backgroundColor: "#161515d9",
-                    }}
-                    ref={canvasRef}
-                  ></canvas>
+                <Fade in={isReady}>
                   <div
                     style={{
+                      marginTop: "50px",
                       display: "flex",
-                      justifyContent: "space-around",
-                      flexDirection: "column",
-                      height: "100%",
-                      width: "40%",
+                      alignItems: "center",
+                      justifyContent: "center",
                     }}
                   >
-                    <div
+                    <NumberInput
+                      defaultValue={10}
+                      min={1}
+                      max={5000}
+                      value={resquestedFrame}
+                      onChange={(event, value) => setResquestedFrame(value)}
+                      style={{ margin: "0px 10px" }}
+                    >
+                      <NumberInputField></NumberInputField>
+                      <NumberInputStepper>
+                        <NumberIncrementStepper />
+                        <NumberDecrementStepper />
+                      </NumberInputStepper>
+                    </NumberInput>
+
+                    <Button
+                      onClick={() =>
+                        videoUility.current.requestFrameByNumber(
+                          resquestedFrame
+                        )
+                      }
+                    >
+                      Extract
+                    </Button>
+                  </div>
+                  <div
+                    style={{
+                      marginTop: "15px",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "flex-start",
+                      width: "60%%",
+                    }}
+                  >
+                    <canvas
                       style={{
-                        height: "250px",
-                        width: "100%",
-                        border: "1px solid white",
-                        borderRadius: "20px",
+                        height: "400px",
+                        width: "60%",
+                        margin: "10px 40px",
                         backgroundColor: "#161515d9",
                       }}
+                      ref={canvasRef}
+                    ></canvas>
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-around",
+                        flexDirection: "column",
+                        height: "100%",
+                        width: "40%",
+                      }}
                     >
-                      {/* file info */}
-                      <span>Video Resolution: </span>
-                      <span>
-                        {/* {fileConfig.codedHeight} x {fileConfig.codedWidth} */}
-                      </span>
+                      <div
+                        style={{
+                          height: "250px",
+                          width: "100%",
+                          border: "1px solid white",
+                          borderRadius: "20px",
+                          backgroundColor: "#161515d9",
+                        }}
+                      >
+                        {/* file info */}
+                        <span>Video Resolution: </span>
+                        <span>
+                          {/* {fileConfig.codedHeight} x {fileConfig.codedWidth} */}
+                        </span>
+                      </div>
                     </div>
-                    <Button>Download Frame</Button>
                   </div>
-                </div>
+                </Fade>
               </>
             ) : (
               <>

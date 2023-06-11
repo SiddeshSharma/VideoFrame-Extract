@@ -100,6 +100,8 @@ export class VideoUtility {
           this.#onEncodedChunk(this.#resArray);
           this.#mp4file.stop();
           this.#abort = true;
+
+          this.#mp4file = null;
         }
       }
     }
